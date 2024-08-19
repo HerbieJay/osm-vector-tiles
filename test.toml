@@ -1,0 +1,52 @@
+tile_buffer = 64
+
+[webserver]
+port = ":8080"
+
+#[cache]
+#type="file"             # cache type
+#basepath="/tmp/tegola"  # cache specific config
+
+# register data providers
+[[providers]]
+name = "test_postgis"   # provider name is referenced from map layers
+type = "mvt_postgis"        # the type of data provider. currently only supports postgis
+uri = "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=prefer"
+srid = 3857             # The default srid for this provider. If not provided it will be WebMercator (3857)
+
+    [[providers.layers]]
+    geometry_type = "LineString"
+    name = "freeways"
+    sql = "SELECT ST_AsMVTGeom(geom, !BBOX!) AS geom, osm_id FROM mv_main_highways WHERE geom && !BBOX!"
+	
+	[[providers.layers]]
+	geometry_type = "MultiPolygon"
+	name = "countries"
+	sql = "SELECT ST_AsMVTGeom(geom, !BBOX!) AS geom, osm_id from country_boundaries where geom && !BBOX!"
+	
+
+ 
+    [[providers.layers]]
+    geometry_type = "LineString"
+    name = "rivers"                        
+    sql = "SELECT ST_AsMVTGeom(ST_Simplify(way,0.80), !BBOX!) AS geom, osm_id FROM planet_osm_line WHERE way && !BBOX! AND waterway = 'river'::text"
+
+# maps are made up of layers
+[[maps]]
+name = "layers"                             # used in the URL to reference this map (/maps/:map_name)
+tile_buffer = 3                             # number of pixels to extend a tile's clipping area
+   
+    [[maps.layers]]
+    provider_layer = "test_postgis.countries"
+    min_zoom = 0
+    max_zoom = 18
+ 
+    [[maps.layers]]
+    provider_layer = "test_postgis.freeways"
+    min_zoom = 4
+    max_zoom = 18
+
+    [[maps.layers]]
+    provider_layer = "test_postgis.rivers"  # must match a data provider layer
+    min_zoom = 5                           # minimum zoom level to include this layer
+    max_zoom = 18                           # maximum zoom level to include this layer
